@@ -14,16 +14,24 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Find and Build Debug APK
+      - name: Generate Dummy Keystore & Build Debug APK
         run: |
           GRADLE_DIR=$(find . -maxdepth 3 -name "build.gradle*" -exec dirname {} \; | head -n 1)
           if [ -n "$GRADLE_DIR" ]; then
             cd "$GRADLE_DIR"
+            
+            # إنشاء ملف debug.keystore تلقائياً لتفادي خطأ التوقيع
+            mkdir -p /home/runner/work/Chat/Chat
+            keytool -genkey -v -keystore /home/runner/work/Chat/Chat/debug.keystore \
+                    -storepass android -alias androiddebugkey -keypass android \
+                    -keyalg RSA -keysize 2048 -validity 10000 \
+                    -dname "CN=Android Debug,O=Android,C=US" || true
+
             chmod +x gradlew 2>/dev/null || true
             if [ -f "./gradlew" ]; then
-              ./gradlew assembleDebug -x lint -x test --no-daemon
+              ./gradlew assembleDebug -Djava.awt.headless=true -Dxing.ksp.incremental=false -x test --no-daemon
             else
-              gradle assembleDebug -x lint -x test --no-daemon
+              gradle assembleDebug -Djava.awt.headless=true -Dxing.ksp.incremental=false -x test --no-daemon
             fi
           fi
 
