@@ -1,0 +1,6 @@
+{
+  "name": "نبيل سيلونس",
+  "description": "تطبيق ذكي واحترافي لإلغاء كتم الصوت وإعادة تشغيل الرنين تلقائياً بعد مدة زمنية محددة، مع مؤقت تفاعلي، ومراقبة تلقائية للوضع الصامت، وإشعارات تحكم سريعة.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
