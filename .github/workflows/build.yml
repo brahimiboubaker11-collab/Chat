@@ -14,10 +14,20 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Build Debug APK
+      - name: Find and Build Debug APK
         run: |
-          chmod +x gradlew || true
-          ./gradlew assembleDebug --no-daemon
+          GRADLE_DIR=$(find . -maxdepth 3 -name "build.gradle*" -exec dirname {} \; | head -n 1)
+          if [ -n "$GRADLE_DIR" ]; then
+            cd "$GRADLE_DIR"
+            chmod +x gradlew 2>/dev/null || true
+            if [ -f "./gradlew" ]; then
+              ./gradlew assembleDebug --no-daemon
+            else
+              gradle assembleDebug --no-daemon
+            fi
+          else
+            echo "لم يتم العثور على ملفات مشروع أندرويد!" && exit 1
+          fi
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
