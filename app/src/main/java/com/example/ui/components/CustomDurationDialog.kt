@@ -41,7 +41,7 @@ fun CustomDurationDialog(
     var selectedMinutes by remember { mutableFloatStateOf(45f) }
     var reasonText by remember { mutableStateOf("كتم مخصص") }
 
-    val quickChoices = listOf(15, 30, 60, 120, 240, 480, 1440)
+    val quickChoices = listOf(15, 30, 45, 60, 120, 180)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -55,7 +55,7 @@ fun CustomDurationDialog(
         text = {
             Column {
                 Text(
-                    text = "حدد عدد الدقائق التي تريد كتم الهاتف خلالها (من 1 د إلى 24 ساعة):",
+                    text = "حدد عدد الدقائق التي تريد كتم الهاتف خلالها (من 1 د إلى 3 ساعات):",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -81,7 +81,7 @@ fun CustomDurationDialog(
                 Slider(
                     value = selectedMinutes,
                     onValueChange = { selectedMinutes = it },
-                    valueRange = 1f..1440f,
+                    valueRange = 1f..180f,
                     colors = SliderDefaults.colors(
                         thumbColor = CyanPrimary,
                         activeTrackColor = CyanPrimary
@@ -91,7 +91,7 @@ fun CustomDurationDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Quick choices chips
+                // Quick choices chips (up to 3 hours)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -99,10 +99,10 @@ fun CustomDurationDialog(
                     listOf(
                         15 to "15 د",
                         30 to "30 د",
+                        45 to "45 د",
                         60 to "1 س",
                         120 to "2 س",
-                        480 to "8 س",
-                        1440 to "24 س"
+                        180 to "3 س"
                     ).forEach { (minVal, label) ->
                         FilterChip(
                             selected = selectedMinutes.toInt() == minVal,

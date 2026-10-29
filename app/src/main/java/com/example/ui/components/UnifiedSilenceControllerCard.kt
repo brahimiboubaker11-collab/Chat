@@ -171,7 +171,7 @@ fun UnifiedSilenceControllerCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = if (isTimerActive) "الرجوع التلقائي للوضع العام" else "تحكم في المدة من 1 دقيقة إلى 24 ساعة",
+                            text = if (isTimerActive) "الرجوع التلقائي للوضع العام" else "تحكم في المدة من 1 دقيقة إلى 3 ساعات",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -484,9 +484,9 @@ fun UnifiedSilenceControllerCard(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // DUAL SLIDERS: Hours & Minutes
+                // DUAL SLIDERS: Hours & Minutes (Max 3 hours)
                 Text(
-                    text = "تحكم دقيق بالساعات والدقائق (من 1 د إلى 24 ساعة):",
+                    text = "تحكم دقيق بالساعات والدقائق (من 1 د إلى 3 ساعات كحد أقصى):",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -494,7 +494,7 @@ fun UnifiedSilenceControllerCard(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 1. Hours Control (0 to 24)
+                // 1. Hours Control (0 to 3)
                 Column {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -502,7 +502,7 @@ fun UnifiedSilenceControllerCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "الساعات:",
+                            text = "الساعات (0 إلى 3):",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -522,7 +522,7 @@ fun UnifiedSilenceControllerCard(
                         FilledIconButton(
                             onClick = {
                                 val newTotal = ((hours - 1).coerceAtLeast(0) * 60) + minutes
-                                onDurationChanged(newTotal.coerceAtLeast(1))
+                                onDurationChanged(newTotal.coerceIn(1, 180))
                             },
                             modifier = Modifier.size(36.dp),
                             shape = RoundedCornerShape(10.dp),
@@ -534,13 +534,15 @@ fun UnifiedSilenceControllerCard(
                         }
 
                         Slider(
-                            value = hours.toFloat(),
+                            value = hours.toFloat().coerceIn(0f, 3f),
                             onValueChange = { newH ->
-                                val newTotal = (newH.toInt() * 60) + minutes
-                                onDurationChanged(newTotal.coerceIn(1, 1440))
+                                val targetH = newH.toInt()
+                                val targetM = if (targetH == 3) 0 else minutes
+                                val newTotal = (targetH * 60) + targetM
+                                onDurationChanged(newTotal.coerceIn(1, 180))
                             },
-                            valueRange = 0f..24f,
-                            steps = 23,
+                            valueRange = 0f..3f,
+                            steps = 2,
                             colors = SliderDefaults.colors(
                                 thumbColor = CyanPrimary,
                                 activeTrackColor = CyanPrimary
@@ -553,8 +555,10 @@ fun UnifiedSilenceControllerCard(
 
                         FilledIconButton(
                             onClick = {
-                                val newTotal = ((hours + 1).coerceAtMost(24) * 60) + minutes
-                                onDurationChanged(newTotal.coerceIn(1, 1440))
+                                val targetH = (hours + 1).coerceAtMost(3)
+                                val targetM = if (targetH == 3) 0 else minutes
+                                val newTotal = (targetH * 60) + targetM
+                                onDurationChanged(newTotal.coerceIn(1, 180))
                             },
                             modifier = Modifier.size(36.dp),
                             shape = RoundedCornerShape(10.dp),
@@ -597,7 +601,7 @@ fun UnifiedSilenceControllerCard(
                         FilledIconButton(
                             onClick = {
                                 val newTotal = (hours * 60) + (minutes - 1).coerceAtLeast(0)
-                                onDurationChanged(newTotal.coerceAtLeast(1))
+                                onDurationChanged(newTotal.coerceIn(1, 180))
                             },
                             modifier = Modifier.size(36.dp),
                             shape = RoundedCornerShape(10.dp),
@@ -609,10 +613,11 @@ fun UnifiedSilenceControllerCard(
                         }
 
                         Slider(
-                            value = minutes.toFloat(),
+                            value = minutes.toFloat().coerceIn(0f, 59f),
                             onValueChange = { newM ->
-                                val newTotal = (hours * 60) + newM.toInt()
-                                onDurationChanged(newTotal.coerceIn(1, 1440))
+                                val targetH = if (hours >= 3) 2 else hours
+                                val newTotal = (targetH * 60) + newM.toInt()
+                                onDurationChanged(newTotal.coerceIn(1, 180))
                             },
                             valueRange = 0f..59f,
                             steps = 58,
@@ -628,8 +633,9 @@ fun UnifiedSilenceControllerCard(
 
                         FilledIconButton(
                             onClick = {
-                                val newTotal = (hours * 60) + (minutes + 1).coerceAtMost(59)
-                                onDurationChanged(newTotal.coerceIn(1, 1440))
+                                val targetH = if (hours >= 3) 2 else hours
+                                val newTotal = (targetH * 60) + (minutes + 1).coerceAtMost(59)
+                                onDurationChanged(newTotal.coerceIn(1, 180))
                             },
                             modifier = Modifier.size(36.dp),
                             shape = RoundedCornerShape(10.dp),
@@ -644,9 +650,9 @@ fun UnifiedSilenceControllerCard(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Quick preset chips
+                // Quick preset chips (up to 3 hours)
                 Text(
-                    text = "أوقات شائعة بنقرة واحدة:",
+                    text = "أوقات شائعة بنقرة واحدة (أقصى حد 3 ساعات):",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -661,11 +667,10 @@ fun UnifiedSilenceControllerCard(
                     30 to "30 دقيقة",
                     45 to "45 دقيقة",
                     60 to "ساعة",
+                    90 to "ساعة ونصف",
                     120 to "ساعتان",
-                    240 to "4 ساعات",
-                    480 to "8 ساعات (نوم)",
-                    720 to "12 ساعة",
-                    1440 to "24 ساعة (يوم)"
+                    150 to "ساعتان ونصف",
+                    180 to "3 ساعات (أقصى حد)"
                 )
 
                 FlowRow(
@@ -780,7 +785,7 @@ fun UnifiedSilenceControllerCard(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = "⚡ تجربة سريعة (كتم لـ 10 ثوانٍ للتحقق من العودة التلقائية للوضع العام)",
+                        text = "⚡ فحص فوري (كتم لـ 10 ثوانٍ للتأكد من عودة الصوت تلقائياً)",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -800,7 +805,7 @@ fun UnifiedSilenceControllerCard(
             text = {
                 Column {
                     Text(
-                        text = "أدخل عدد الدقائق بالضبط (من 1 دقيقة إلى 1440 دقيقة = 24 ساعة):",
+                        text = "أدخل عدد الدقائق بالضبط (من 1 دقيقة إلى 180 دقيقة = 3 ساعات):",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -808,7 +813,7 @@ fun UnifiedSilenceControllerCard(
                     OutlinedTextField(
                         value = inputMinutesText,
                         onValueChange = { inputMinutesText = it.filter { char -> char.isDigit() } },
-                        label = { Text("عدد الدقائق") },
+                        label = { Text("عدد الدقائق (أقصى حد 180)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
@@ -819,7 +824,7 @@ fun UnifiedSilenceControllerCard(
                 Button(
                     onClick = {
                         val parsed = inputMinutesText.toIntOrNull() ?: defaultDurationMinutes
-                        onDurationChanged(parsed.coerceIn(1, 1440))
+                        onDurationChanged(parsed.coerceIn(1, 180))
                         showManualInputDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(

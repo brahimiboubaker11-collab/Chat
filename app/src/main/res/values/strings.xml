@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">نبيل سيلونس</string>
     <string name="app_subtitle">المساعد الذكي لإلغاء كتم الهاتف تلقائياً</string>
-    <string name="beta_badge">نسخة تجريبية 1.0 (Beta)</string>
+    <string name="rights_reserved">جميع الحقوق محفوظة ابـوبكر</string>
     <string name="notification_channel_name">خدمة نبيل سيلونس</string>
     <string name="notification_channel_desc">إشعارات المؤقت والتحكم بإلغاء الكتم التلقائي</string>
     <string name="notification_title_silent">نبيل سيلونس - الهاتف في وضع الصامت</string>

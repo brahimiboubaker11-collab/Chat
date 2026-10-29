@@ -70,9 +70,9 @@ class SilenceViewModel(application: Application) : AndroidViewModel(application)
         PresetOption("prayer", "وقت الصلاة", 30, "كتم مؤقت لأداء الصلاة بتركيز", "🕌"),
         PresetOption("meeting", "اجتماع عمل", 45, "للاجتماعات والمقابلات الهامة", "💼"),
         PresetOption("study", "دراسة / محاضرة", 60, "جلسة تركيز ومذاكرة مكثفة", "📚"),
-        PresetOption("movie", "سينما / حدث", 120, "فيلم سينمائي أو حدث طويل", "🎬"),
         PresetOption("nap", "قيلولة / راحة", 90, "راحة هادئة بدون إزعاج الرنين", "☕"),
-        PresetOption("sleep", "نوم عميق", 480, "8 ساعات نوم هانئ", "🌙")
+        PresetOption("movie", "سينما / حدث", 120, "فيلم سينمائي أو حدث طويل", "🎬"),
+        PresetOption("focus", "هدوء وتركيز", 180, "3 ساعات صامت (أقصى مدة)", "🎯")
     )
 
     init {
@@ -167,10 +167,10 @@ class SilenceViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun testQuickTenSeconds() {
-        // Sets a quick 10-second mute test so the user can verify the countdown and auto-unmute
+        // Sets a quick 10-second mute check so the user can verify the countdown and auto-unmute
         val totalMs = 10 * 1000L
         val endMs = System.currentTimeMillis() + totalMs
-        preferences.setTimerActive(endMs, totalMs, "تجربة سريعة (10 ثوانٍ)", "يدوي")
+        preferences.setTimerActive(endMs, totalMs, "فحص فوري (10 ثوانٍ)", "يدوي")
         try {
             val audioManager = getApplication<Application>().getSystemService(Application.AUDIO_SERVICE) as android.media.AudioManager
             audioManager.ringerMode = android.media.AudioManager.RINGER_MODE_SILENT
@@ -179,14 +179,14 @@ class SilenceViewModel(application: Application) : AndroidViewModel(application)
             action = com.example.service.SilenceTimerService.ACTION_START
             putExtra(com.example.service.SilenceTimerService.EXTRA_END_TIME, endMs)
             putExtra(com.example.service.SilenceTimerService.EXTRA_TOTAL_DURATION, totalMs)
-            putExtra(com.example.service.SilenceTimerService.EXTRA_REASON, "تجربة سريعة (10 ثوانٍ)")
+            putExtra(com.example.service.SilenceTimerService.EXTRA_REASON, "فحص فوري (10 ثوانٍ)")
         }
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             getApplication<Application>().startForegroundService(intent)
         } else {
             getApplication<Application>().startService(intent)
         }
-        _messageEvent.value = "بدأت التجربة السريعة! سيتم إلغاء الكتم تلقائياً بعد 10 ثوانٍ"
+        _messageEvent.value = "بدأ الفحص الفوري! سيتم إلغاء الكتم تلقائياً بعد 10 ثوانٍ"
         refreshState()
     }
 
@@ -215,7 +215,7 @@ class SilenceViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun updateDefaultDuration(minutes: Int) {
-        preferences.defaultDurationMinutes = minutes
+        preferences.defaultDurationMinutes = minutes.coerceIn(1, 180)
     }
 
     fun updateRestoreVolume(percent: Int) {

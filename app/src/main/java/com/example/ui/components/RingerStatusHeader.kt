@@ -45,7 +45,6 @@ import com.example.ui.theme.RoseSilent
 fun RingerStatusHeader(
     ringerStatus: RingerStatus,
     volumePercent: Int,
-    onBetaBadgeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -58,7 +57,7 @@ fun RingerStatusHeader(
         )
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
-            // App Name & Beta Badge
+            // App Name & Status Badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -96,32 +95,22 @@ fun RingerStatusHeader(
                     }
                 }
 
-                // Beta badge clickable
+                // Active Protection Badge
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
                         .background(CyanPrimary.copy(alpha = 0.12f))
                         .border(1.dp, CyanPrimary.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                        .clickable { onBetaBadgeClick() }
                         .padding(horizontal = 10.dp, vertical = 6.dp)
-                        .testTag("beta_badge_button"),
+                        .testTag("protection_badge"),
                     contentAlignment = Alignment.Center
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "نسخة تجريبية 1.0",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = CyanPrimary
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = "معلومات النسخة",
-                            tint = CyanPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+                    Text(
+                        text = "النسخة الدائمة والرسمية ✅",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = CyanPrimary
+                    )
                 }
             }
 

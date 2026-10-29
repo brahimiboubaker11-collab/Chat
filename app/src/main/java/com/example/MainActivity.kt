@@ -52,7 +52,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.SilenceViewModel
-import com.example.ui.components.BetaTrialDialog
 import com.example.ui.components.CustomDurationDialog
 import com.example.ui.components.DndPermissionCard
 import com.example.ui.components.HistorySection
@@ -94,7 +93,6 @@ fun NabilSilenceScreen(
 
     // Dialog state
     var showCustomDialog by remember { mutableStateOf(false) }
-    var showBetaDialog by remember { mutableStateOf(false) }
     var showDndPromptDialog by remember { mutableStateOf(!viewModel.hasDndPermission.value) }
 
     // Collect reactive state from ViewModel
@@ -185,11 +183,10 @@ fun NabilSilenceScreen(
                     .testTag("main_screen_container"),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Header with current state and Beta badge
+                // Header with current state
                 RingerStatusHeader(
                     ringerStatus = ringerStatus,
-                    volumePercent = volumePercent,
-                    onBetaBadgeClick = { showBetaDialog = true }
+                    volumePercent = volumePercent
                 )
 
                 // DND permission card
@@ -255,18 +252,19 @@ fun NabilSilenceScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 12.dp),
+                        .padding(vertical = 14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "نبيل سيلونس • النسخة التجريبية 1.0 (Beta)",
-                        style = MaterialTheme.typography.labelMedium,
+                        text = "جميع الحقوق محفوظة ابـوبكر",
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = CyanPrimary
+                        color = CyanPrimary,
+                        textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "تطبيق ذكي ينحي السيلونس تلقائياً ويضمن عدم تفويت اتصالاتك ورسائلك المهمة.",
+                        text = "نبيل سيلونس • تطبيق ذكي لإلغاء كتم الهاتف والرجوع للوضع العام تلقائياً",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -286,13 +284,6 @@ fun NabilSilenceScreen(
                 showCustomDialog = false
                 viewModel.muteCustom(minutes, reason)
             }
-        )
-    }
-
-    // Beta Trial Dialog
-    if (showBetaDialog) {
-        BetaTrialDialog(
-            onDismiss = { showBetaDialog = false }
         )
     }
 

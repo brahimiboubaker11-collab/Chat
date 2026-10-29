@@ -57,10 +57,11 @@ class SilencePreferences(private val context: Context) {
         }
 
     var defaultDurationMinutes: Int
-        get() = prefs.getInt(KEY_DEFAULT_DURATION, 30)
+        get() = prefs.getInt(KEY_DEFAULT_DURATION, 30).coerceIn(1, 180)
         set(value) {
-            prefs.edit().putInt(KEY_DEFAULT_DURATION, value).apply()
-            _defaultDurationFlow.value = value
+            val clamped = value.coerceIn(1, 180)
+            prefs.edit().putInt(KEY_DEFAULT_DURATION, clamped).apply()
+            _defaultDurationFlow.value = clamped
         }
 
     var includeVibrateMode: Boolean

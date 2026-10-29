@@ -34,8 +34,8 @@ class ExampleRobolectricTest {
         prefs.isAutoDetectionEnabled = true
         assertTrue(prefs.isAutoDetectionEnabled)
 
-        prefs.defaultDurationMinutes = 1440
-        assertEquals(1440, prefs.defaultDurationMinutes)
+        prefs.defaultDurationMinutes = 180
+        assertEquals(180, prefs.defaultDurationMinutes)
 
         prefs.restoreVolumePercent = 80
         assertEquals(80, prefs.restoreVolumePercent)
