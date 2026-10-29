@@ -113,9 +113,17 @@ fun NabilSilenceScreen(
     val timerEndTime by viewModel.timerEndTime.collectAsStateWithLifecycle()
     val historyLogs by viewModel.historyLogs.collectAsStateWithLifecycle()
     val messageEvent by viewModel.messageEvent.collectAsStateWithLifecycle()
+    val isIgnoringBattery by viewModel.isIgnoringBattery.collectAsStateWithLifecycle()
 
     // Activity result launcher for DND Settings
     val dndSettingsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        viewModel.refreshState()
+    }
+
+    // Activity result launcher for Battery Optimization
+    val batterySettingsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) {
         viewModel.refreshState()
@@ -230,7 +238,11 @@ fun NabilSilenceScreen(
                     soundAlertOnUnmute = soundAlertOnUnmute,
                     onSoundAlertChanged = { viewModel.updateSoundAlert(it) },
                     vibrateOnUnmute = vibrateOnUnmute,
-                    onVibrateAlertChanged = { viewModel.updateVibrateAlert(it) }
+                    onVibrateAlertChanged = { viewModel.updateVibrateAlert(it) },
+                    isIgnoringBattery = isIgnoringBattery,
+                    onRequestIgnoreBattery = {
+                        batterySettingsLauncher.launch(viewModel.getBatteryOptimizationIntent())
+                    }
                 )
 
                 // History Section

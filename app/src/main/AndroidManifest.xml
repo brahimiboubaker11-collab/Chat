@@ -10,6 +10,9 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:name=".NabilSilenceApp"
@@ -21,10 +24,6 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
-
-        <property
-            android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-            android:value="Automated temporary silence timer unmuting and phone ringer manager" />
 
         <activity
             android:name=".MainActivity"
@@ -38,20 +37,60 @@
             </intent-filter>
         </activity>
 
+        <!-- Ongoing Timer and Unmute Service -->
         <service
             android:name=".service.SilenceTimerService"
             android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:stopWithTask="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Automated temporary silence countdown and ringer manager" />
+        </service>
 
+        <!-- Persistent Background Monitor Service -->
+        <service
+            android:name=".service.SilenceMonitorService"
+            android:exported="false"
+            android:stopWithTask="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Phone ringer state monitoring and automatic unmute protection" />
+        </service>
+
+        <!-- Alarm Receiver to guarantee unmuting even if app is completely closed/killed -->
+        <receiver
+            android:name=".receiver.AlarmUnmuteReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.example.ACTION_ALARM_UNMUTE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Receiver to restart monitoring service via AlarmManager when task is cleared -->
+        <receiver
+            android:name=".receiver.RestartMonitorReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.example.ACTION_RESTART_MONITOR" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Broadcast receiver for system ringer mode, DND, and boot -->
         <receiver
             android:name=".receiver.RingerModeReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.media.RINGER_MODE_CHANGED" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.app.action.INTERRUPTION_FILTER_CHANGED" />
             </intent-filter>
         </receiver>
 
+        <!-- Notification actions receiver -->
         <receiver
             android:name=".receiver.SilenceActionReceiver"
             android:exported="false">

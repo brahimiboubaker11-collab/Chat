@@ -14,6 +14,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import com.example.receiver.RingerModeReceiver
+import com.example.service.SilenceMonitorService
 import com.example.service.SilenceTimerService
 
 class NabilSilenceApp : Application() {
@@ -30,6 +31,7 @@ class NabilSilenceApp : Application() {
         createNotificationChannels()
         registerDynamicRingerReceiver()
         registerAudioContentObserver()
+        SilenceMonitorService.start(this)
     }
 
     private fun registerDynamicRingerReceiver() {

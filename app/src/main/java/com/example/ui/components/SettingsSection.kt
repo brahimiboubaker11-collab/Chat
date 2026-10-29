@@ -38,6 +38,8 @@ fun SettingsSection(
     onSoundAlertChanged: (Boolean) -> Unit,
     vibrateOnUnmute: Boolean,
     onVibrateAlertChanged: (Boolean) -> Unit,
+    isIgnoringBattery: Boolean = true,
+    onRequestIgnoreBattery: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -228,6 +230,62 @@ fun SettingsSection(
                     ),
                     modifier = Modifier.testTag("vibrate_alert_switch")
                 )
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+            // 7. Background Battery Optimization
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "الحماية الدائمة في الخلفية (عدم إيقاف التطبيق)",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (isIgnoringBattery)
+                            "نبيل سيلونس محمي من الإيقاف وسيعمل دائماً حتى عند إغلاق التطبيق"
+                        else
+                            "اضغط لتجاوز قيود توفير الطاقة وضمان عمل التطبيق بعد الخروج",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isIgnoringBattery) androidx.compose.ui.graphics.Color(0xFF81C784) else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (isIgnoringBattery) {
+                    androidx.compose.material3.Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = androidx.compose.ui.graphics.Color(0xFF2E7D32).copy(alpha = 0.2f),
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        Text(
+                            text = "محمي ✅",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = androidx.compose.ui.graphics.Color(0xFF81C784),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                        )
+                    }
+                } else {
+                    androidx.compose.material3.Button(
+                        onClick = onRequestIgnoreBattery,
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = CyanPrimary,
+                            contentColor = androidx.compose.ui.graphics.Color.Black
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .testTag("request_battery_opt_button")
+                    ) {
+                        Text("تفعيل ⚡", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
             }
         }
     }

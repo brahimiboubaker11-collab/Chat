@@ -1,5 +1,6 @@
 package com.example.service
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -12,10 +13,12 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.R
 import com.example.data.SilencePreferences
+import com.example.receiver.RestartMonitorReceiver
 import com.example.receiver.SilenceActionReceiver
 import java.util.Locale
 
@@ -26,6 +29,7 @@ class SilenceTimerService : Service() {
         const val ALERT_CHANNEL_ID = "nabil_silence_alert_channel"
         const val NOTIFICATION_ID = 1001
         const val ALERT_NOTIFICATION_ID = 1002
+        private const val TAG = "SilenceTimerService"
 
         const val ACTION_START = "com.example.service.ACTION_START"
         const val ACTION_STOP = "com.example.service.ACTION_STOP"
@@ -82,6 +86,10 @@ class SilenceTimerService : Service() {
                     reason = preferences.timerReason
                     startForegroundNotification()
                     startTicker()
+                } else if (savedEnd > 0) {
+                    SilenceManager.getInstance(this).unmutePhone("اكتمال الوقت عند إعادة التشغيل")
+                    stopForegroundService()
+                    return START_NOT_STICKY
                 } else {
                     stopForegroundService()
                     return START_NOT_STICKY
@@ -92,16 +100,20 @@ class SilenceTimerService : Service() {
     }
 
     private fun startForegroundNotification() {
-        val notification = buildOngoingNotification(getFormattedRemainingTime())
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val serviceType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+        try {
+            val notification = buildOngoingNotification(getFormattedRemainingTime())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val serviceType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                } else {
+                    0
+                }
+                startForeground(NOTIFICATION_ID, notification, serviceType)
             } else {
-                0
+                startForeground(NOTIFICATION_ID, notification)
             }
-            startForeground(NOTIFICATION_ID, notification, serviceType)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in startForegroundNotification: ${e.message}")
         }
     }
 
@@ -118,8 +130,12 @@ class SilenceTimerService : Service() {
                     stopForegroundService()
                 } else {
                     // Update notification text
-                    val notification = buildOngoingNotification(getFormattedRemainingTime())
-                    notificationManager.notify(NOTIFICATION_ID, notification)
+                    try {
+                        val notification = buildOngoingNotification(getFormattedRemainingTime())
+                        notificationManager.notify(NOTIFICATION_ID, notification)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error updating notification: ${e.message}")
+                    }
                     handler.postDelayed(this, 1000L)
                 }
             }
@@ -204,26 +220,30 @@ class SilenceTimerService : Service() {
     }
 
     private fun showCompletionNotification() {
-        val openAppIntent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        try {
+            val openAppIntent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val openAppPendingIntent = PendingIntent.getActivity(
+                this,
+                4,
+                openAppIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val notification = NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setContentTitle("تم إلغاء كتم الهاتف بنجاح 🔊")
+                .setContentText("أعاد نبيل سيلونس تشغيل الرنين إلى وضعه الطبيعي بنجاح.")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(openAppPendingIntent)
+                .build()
+
+            notificationManager.notify(ALERT_NOTIFICATION_ID, notification)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error showing completion notification: ${e.message}")
         }
-        val openAppPendingIntent = PendingIntent.getActivity(
-            this,
-            4,
-            openAppIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("تم إلغاء كتم الهاتف بنجاح 🔊")
-            .setContentText("أعاد نبيل سيلونس تشغيل الرنين إلى وضعه الطبيعي بنجاح.")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .setContentIntent(openAppPendingIntent)
-            .build()
-
-        notificationManager.notify(ALERT_NOTIFICATION_ID, notification)
     }
 
     private fun stopForegroundService() {
@@ -261,6 +281,41 @@ class SilenceTimerService : Service() {
 
             notificationManager.createNotificationChannel(timerChannel)
             notificationManager.createNotificationChannel(alertChannel)
+        }
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Log.i(TAG, "onTaskRemoved: App swiped. Rescheduling recovery via RestartMonitorReceiver broadcast.")
+        val savedEnd = preferences.timerEndTimeMs
+        if (savedEnd > System.currentTimeMillis()) {
+            try {
+                val restartIntent = Intent(applicationContext, RestartMonitorReceiver::class.java).apply {
+                    action = RestartMonitorReceiver.ACTION_RESTART_MONITOR
+                }
+                val restartPendingIntent = PendingIntent.getBroadcast(
+                    applicationContext,
+                    301,
+                    restartIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        System.currentTimeMillis() + 1000,
+                        restartPendingIntent
+                    )
+                } else {
+                    alarmManager.set(
+                        AlarmManager.RTC_WAKEUP,
+                        System.currentTimeMillis() + 1000,
+                        restartPendingIntent
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error rescheduling onTaskRemoved in SilenceTimerService: ${e.message}")
+            }
         }
     }
 

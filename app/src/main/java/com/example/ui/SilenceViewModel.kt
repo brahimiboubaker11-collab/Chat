@@ -34,6 +34,9 @@ class SilenceViewModel(application: Application) : AndroidViewModel(application)
     val defaultDurationMinutes = preferences.defaultDurationFlow
     val historyLogs = preferences.historyFlow
 
+    private val _isIgnoringBattery = MutableStateFlow(silenceManager.isIgnoringBatteryOptimizations())
+    val isIgnoringBattery: StateFlow<Boolean> = _isIgnoringBattery.asStateFlow()
+
     private val _restoreVolumePercent = MutableStateFlow(preferences.restoreVolumePercent)
     val restoreVolumePercent: StateFlow<Int> = _restoreVolumePercent.asStateFlow()
 
@@ -81,6 +84,7 @@ class SilenceViewModel(application: Application) : AndroidViewModel(application)
         _ringerStatus.value = silenceManager.getCurrentRingerStatus()
         _volumePercent.value = silenceManager.getCurrentVolumePercent()
         _hasDndPermission.value = silenceManager.hasDndAccess()
+        _isIgnoringBattery.value = silenceManager.isIgnoringBatteryOptimizations()
         _timerEndTime.value = preferences.timerEndTimeMs
         _timerTotalDuration.value = preferences.timerTotalDurationMs
         _timerReason.value = preferences.timerReason
@@ -244,4 +248,5 @@ class SilenceViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun getDndSettingsIntent() = silenceManager.getDndSettingsIntent()
+    fun getBatteryOptimizationIntent() = silenceManager.getBatteryOptimizationIntent()
 }

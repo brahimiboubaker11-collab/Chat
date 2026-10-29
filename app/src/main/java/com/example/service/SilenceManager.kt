@@ -1,12 +1,17 @@
 package com.example.service
 
+import android.annotation.SuppressLint
+import android.app.AlarmManager
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -15,11 +20,13 @@ import android.util.Log
 import com.example.data.SilencePreferences
 import com.example.model.RingerStatus
 import com.example.model.SilenceLogEntry
+import com.example.receiver.AlarmUnmuteReceiver
 
 class SilenceManager(private val context: Context) {
 
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
     private val prefs = SilencePreferences.getInstance(context)
 
     companion object {
@@ -48,6 +55,40 @@ class SilenceManager(private val context: Context) {
     }
 
     /**
+     * Checks if the app is exempt from Battery Optimizations.
+     */
+    fun isIgnoringBatteryOptimizations(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+        } else {
+            true
+        }
+    }
+
+    /**
+     * Intent to request disabling battery optimization for persistent 24/7 background operation.
+     */
+    @SuppressLint("BatteryLife")
+    fun getBatteryOptimizationIntent(): Intent {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            } catch (e: Exception) {
+                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            }
+        } else {
+            Intent(Settings.ACTION_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        }
+    }
+
+    /**
      * Intent to open system DND access settings.
      */
     fun getDndSettingsIntent(): Intent {
@@ -66,10 +107,18 @@ class SilenceManager(private val context: Context) {
      * Gets current ringer status.
      */
     fun getCurrentRingerStatus(): RingerStatus {
-        return when (audioManager.ringerMode) {
-            AudioManager.RINGER_MODE_NORMAL -> RingerStatus.NORMAL
-            AudioManager.RINGER_MODE_VIBRATE -> RingerStatus.VIBRATE
-            AudioManager.RINGER_MODE_SILENT -> RingerStatus.SILENT
+        val mode = audioManager.ringerMode
+        val ringVol = audioManager.getStreamVolume(AudioManager.STREAM_RING)
+
+        val isDndActive = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val filter = notificationManager.currentInterruptionFilter
+            filter != NotificationManager.INTERRUPTION_FILTER_ALL && filter != 0
+        } else false
+
+        return when {
+            mode == AudioManager.RINGER_MODE_SILENT || isDndActive || (mode == AudioManager.RINGER_MODE_NORMAL && ringVol == 0) -> RingerStatus.SILENT
+            mode == AudioManager.RINGER_MODE_VIBRATE -> RingerStatus.VIBRATE
+            mode == AudioManager.RINGER_MODE_NORMAL -> RingerStatus.NORMAL
             else -> RingerStatus.UNKNOWN
         }
     }
@@ -85,15 +134,25 @@ class SilenceManager(private val context: Context) {
     }
 
     /**
-     * Restores the phone ringer mode to NORMAL and sets preferred volume.
+     * Restores the phone ringer mode to NORMAL, exits DND, and sets preferred volume.
      */
     fun unmutePhone(reason: String = "إلغاء الكتم التلقائي"): Boolean {
-        Log.d(TAG, "Unmuting phone: $reason")
+        Log.i(TAG, "Unmuting phone: $reason")
         var ringerModeChanged = false
 
-        // 1. Attempt setting ringerMode to NORMAL
+        // 1. Reset DND interruption filter to ALL (Normal)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && hasDndAccess()) {
+            try {
+                notificationManager.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
+            } catch (e: Exception) {
+                Log.w(TAG, "Error resetting interruption filter: ${e.message}")
+            }
+        }
+
+        // 2. Attempt setting ringerMode to NORMAL
         try {
             audioManager.ringerMode = AudioManager.RINGER_MODE_NORMAL
+            audioManager.mode = AudioManager.MODE_NORMAL
             ringerModeChanged = true
         } catch (e: SecurityException) {
             Log.w(TAG, "SecurityException changing ringerMode directly (DND permission needed): ${e.message}")
@@ -101,7 +160,7 @@ class SilenceManager(private val context: Context) {
             Log.e(TAG, "Error changing ringerMode: ${e.message}")
         }
 
-        // 2. Calculate and set preferred volume
+        // 3. Calculate and set preferred volume
         try {
             val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_RING)
             val targetPercent = prefs.restoreVolumePercent
@@ -114,17 +173,17 @@ class SilenceManager(private val context: Context) {
             Log.w(TAG, "Could not set stream volume directly: ${e.message}")
         }
 
-        // 3. Feedback: vibration
+        // 4. Feedback: vibration
         if (prefs.vibrateOnUnmute) {
             triggerVibration()
         }
 
-        // 4. Feedback: audio chime
+        // 5. Feedback: audio chime
         if (prefs.soundAlertOnUnmute) {
             playUnmuteChime()
         }
 
-        // 5. Log session if a timer was active
+        // 6. Log session if a timer was active
         try {
             val totalDur = prefs.timerTotalDurationMs
             val durMin = if (totalDur > 0) (totalDur / 60000L).toInt() else prefs.defaultDurationMinutes
@@ -142,7 +201,7 @@ class SilenceManager(private val context: Context) {
             Log.e(TAG, "Error logging history: ${e.message}")
         }
 
-        // 6. Stop service and clear timer state
+        // 7. Stop service and clear timer state
         stopTimerService()
         return ringerModeChanged || hasDndAccess()
     }
@@ -217,25 +276,87 @@ class SilenceManager(private val context: Context) {
     }
 
     private fun startTimerService(endMs: Long, totalMs: Long, reason: String) {
+        // 1. Arm system AlarmManager alarm (guaranteed to trigger even if process is killed or app is closed)
+        scheduleSystemAlarm(endMs, reason)
+
+        // 2. Start ongoing timer foreground service for live notification countdown
         val intent = Intent(context, SilenceTimerService::class.java).apply {
             action = SilenceTimerService.ACTION_START
             putExtra(SilenceTimerService.EXTRA_END_TIME, endMs)
             putExtra(SilenceTimerService.EXTRA_TOTAL_DURATION, totalMs)
             putExtra(SilenceTimerService.EXTRA_REASON, reason)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
-        } else {
-            context.startService(intent)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting SilenceTimerService: ${e.message}")
         }
     }
 
     fun stopTimerService() {
         prefs.clearTimer()
+        cancelSystemAlarm()
+
         val intent = Intent(context, SilenceTimerService::class.java).apply {
             action = SilenceTimerService.ACTION_STOP
         }
-        context.startService(intent)
+        try {
+            context.startService(intent)
+        } catch (_: Exception) {}
+    }
+
+    private fun scheduleSystemAlarm(endMs: Long, reason: String) {
+        try {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val intent = Intent(context, AlarmUnmuteReceiver::class.java).apply {
+                action = AlarmUnmuteReceiver.ACTION_ALARM_UNMUTE
+                putExtra("reason", reason)
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                100,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (alarmManager.canScheduleExactAlarms()) {
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, endMs, pendingIntent)
+                } else {
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, endMs, pendingIntent)
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, endMs, pendingIntent)
+            } else {
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, endMs, pendingIntent)
+            }
+            Log.i(TAG, "Scheduled system AlarmManager exact alarm for endMs=$endMs")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error scheduling AlarmManager alarm: ${e.message}")
+        }
+    }
+
+    private fun cancelSystemAlarm() {
+        try {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val intent = Intent(context, AlarmUnmuteReceiver::class.java).apply {
+                action = AlarmUnmuteReceiver.ACTION_ALARM_UNMUTE
+            }
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                100,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(pendingIntent)
+            Log.d(TAG, "Cancelled system AlarmManager alarm")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error cancelling AlarmManager: ${e.message}")
+        }
     }
 
     private fun triggerVibration() {
